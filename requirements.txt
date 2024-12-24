@@ -2,3 +2,8 @@ requests
 streamlit
 beautifulsoup4
 pandas
+python-dotenv
+google-generativeai
+langchain-google-genai
+langchain
+PyPDF2
