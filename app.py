@@ -15,7 +15,25 @@ st.title("GitHub User, Repo, and Commit Info")
 
 # Input username
 userName = st.text_input("Enter GitHub Username")
-
+# Agent class for Generative AI interaction (same as in your provided code)
+class Agent:
+    def __init__(self, system=""):
+        self.system = system
+        self.messages = []
+        if self.system:
+            self.messages.append(SystemMessage(content=self.system))
+    
+    def __call__(self, message):
+        self.messages.append(HumanMessage(content=message))
+        result = self.execute()
+        self.messages.append(AIMessage(content=result))
+        return result
+    
+    def execute(self):
+        # Use Gemini API without specifying the version
+        chat = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3, convert_system_message_to_human=True)
+        result = chat.invoke(self.messages)
+        return result.content
 if userName:
     st.subheader("User Info")
 
@@ -140,22 +158,4 @@ if userName:
 else:
     st.write("Please enter a GitHub username.")
 
-# Agent class for Generative AI interaction (same as in your provided code)
-class Agent:
-    def __init__(self, system=""):
-        self.system = system
-        self.messages = []
-        if self.system:
-            self.messages.append(SystemMessage(content=self.system))
-    
-    def __call__(self, message):
-        self.messages.append(HumanMessage(content=message))
-        result = self.execute()
-        self.messages.append(AIMessage(content=result))
-        return result
-    
-    def execute(self):
-        # Use Gemini API without specifying the version
-        chat = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3, convert_system_message_to_human=True)
-        result = chat.invoke(self.messages)
-        return result.content
+
