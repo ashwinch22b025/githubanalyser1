@@ -114,13 +114,18 @@ if userName:
                 readme_response = requests.get(readme_url).json()
                 if 'content' in readme_response:
                     readme_content = readme_response['content']
-                    readme_decoded = requests.utils.unquote(readme_content)
-                    bot = Agent("Analyze the README content of a GitHub repository.")
-                    analysis_result = bot(readme_decoded)
-                    st.subheader(f"README Analysis for Repository: {repo_data['name']}")
-                    st.write(analysis_result)
+                    try:
+                        readme_decoded = requests.utils.unquote(readme_content)
+                        bot = Agent("Analyze the README content of a GitHub repository.")
+                        analysis_result = bot(readme_decoded)
+                        st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                        st.write(analysis_result)
+                    except Exception:
+                        st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                        st.write("NULL")
                 else:
-                    st.write("README not available for this repository.")
+                    st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                    st.write("NULL")
             except Exception as e:
                 st.error(f"Error fetching README for {repo_data['name']}: {e}")
     else:
