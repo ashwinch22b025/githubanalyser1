@@ -1,6 +1,15 @@
 import json
 import requests
 import streamlit as st
+import os
+from dotenv import load_dotenv
+import google.generativeai as genai
+from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.schema import HumanMessage, AIMessage, SystemMessage
+
+# Load environment variables
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 st.title("GitHub User, Repo, and Commit Info")
 
@@ -66,6 +75,23 @@ if userName:
         st.write(f"Repository {idx}")
         st.json(repo_data)
 
+        # Fetch the README file and analyze it using the Gemini API
+        readme_url = f'https://api.github.com/repos/{userName}/{repo_data["name"]}/readme'
+        readme_response = requests.get(readme_url).json()
+
+        # Check if README exists for the repository
+        if 'content' in readme_response:
+            readme_content = readme_response['content']
+            readme_decoded = requests.utils.unquote(readme_content)  # Decode base64 content if needed
+
+            # Analyze README content with Gemini API
+            bot = Agent("Analyze the README content of a GitHub repository.")
+            analysis_result = bot(readme_decoded)
+            st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+            st.write(analysis_result)
+        else:
+            st.write("README not available for this repository.")
+
     st.subheader("Commit Info")
 
     # Commit Info from Commit class
@@ -99,3 +125,25 @@ if userName:
                 })
 else:
     st.write("Please enter a GitHub username.")
+
+
+# Agent class for Generative AI interaction (same as in your provided code)
+class Agent:
+    def __init__(self, system=""):
+        self.system = system
+        self.messages = []
+        if self.system:
+            self.messages.append(SystemMessage(content=self.system))
+    
+    def __call__(self, message):
+        self.messages.append(HumanMessage(content=message))
+        result = self.execute()
+        self.messages.append(AIMessage(content=result))
+        return result
+    
+    def execute(self):
+        # Use Gemini API without specifying the version
+        chat = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.3, convert_system_message_to_human=True)
+        result = chat.invoke(self.messages)
+        return result.content
+
