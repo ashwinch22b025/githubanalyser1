@@ -258,13 +258,19 @@ def evaluate_all_repositories(username):
                     'repository': repo_data['name'],
                     'evaluation': evaluation_result
                 })
-                # Extract the score from the result (assuming the bot's result ends with a score out of 100)
+
+                # Debugging: Log the evaluation result
+                print(f"Evaluation Result for {repo_data['name']}: {evaluation_result}")
+
+                # Extract the score from the result (update parsing logic)
                 try:
-                    score = int(evaluation_result.split()[-2])  # Adjust this parsing as needed
+                    # Adjust the extraction logic based on actual format
+                    score_line = evaluation_result.splitlines()[-1]  # Assuming score is on the last line
+                    score = int([s for s in score_line.split() if s.isdigit()][0])  # Extract first number
                     total_score += score
                     repo_count += 1
-                except ValueError:
-                    pass
+                except Exception as e:
+                    print(f"Error parsing score for {repo_data['name']}: {e}")
 
         if repo_count == 0:
             return "No valid scores could be calculated for the user's repositories."
@@ -278,6 +284,7 @@ def evaluate_all_repositories(username):
 
     except Exception as e:
         return f"Error fetching or evaluating repositories: {e}"
+
 
 if userName and all_repos:
     st.subheader(f"Overall Evaluation for User: {userName}")
