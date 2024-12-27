@@ -173,3 +173,114 @@ if userName:
             st.error(f"Error fetching commits: {e}")
 else:
     st.write("Please enter a GitHub username.")
+
+
+def evaluate_repository_with_gemini(repo_data, username):
+    """
+    Evaluate a GitHub repository using the Gemini API based on a 20-point rubric.
+
+    Args:
+        repo_data (dict): Data about the repository, including its name.
+        username (str): GitHub username.
+
+    Returns:
+        str: Evaluation summary scored out of 100 marks.
+    """
+    # Define the rubric (example points, can be expanded)
+    rubric = [
+        "Number of pull requests accepted",
+        "Frequency of commits",
+        "Quality of README file",
+        "Number of stars",
+        "Number of forks",
+        "Number of contributors",
+        "Open issues to closed issues ratio",
+        "Use of automated tests",
+        "Presence of CI/CD pipelines",
+        "Activity in the past month",
+        "Diversity of programming languages used",
+        "Presence of a well-documented CONTRIBUTING file",
+        "Code coverage (if reported)",
+        "Security vulnerabilities flagged",
+        "Number of releases",
+        "Use of GitHub Actions or equivalent",
+        "Community engagement in discussions",
+        "Quality of documentation other than README",
+        "License presence and clarity",
+        "Use of tags for versioning"
+    ]
+
+    # Initialize the Agent
+    bot = Agent("Evaluate a GitHub repository based on a 20-point rubric, scoring each point out of 5 marks.")
+
+    # Create a prompt including the rubric and repository details
+    prompt = f"""
+    Evaluate the GitHub repository '{repo_data['name']}' for the user '{username}'.
+    Use the following rubric to score the repository out of 100 marks. Each point is worth 5 marks:
+    """ + "\n".join([f"{i + 1}. {point}" for i, point in enumerate(rubric)]) + "\n\nProvide a detailed evaluation and the final score."
+
+    # Execute the evaluation
+    try:
+        result = bot(prompt)
+        return result
+    except Exception as e:
+        return f"Error during evaluation: {e}"
+
+# Evaluate all repositories for a given username and calculate an average score
+def evaluate_all_repositories(username):
+    """
+    Fetch all repositories for a GitHub user and calculate an average score using the Gemini API.
+
+    Args:
+        username (str): GitHub username.
+
+    Returns:
+        str: Overall evaluation summary and average score.
+    """
+    repo_url = f'https://api.github.com/users/{username}/repos'
+    try:
+        repos = requests.get(repo_url).json()
+        if not isinstance(repos, list):
+            return "Error fetching repositories or user has no repositories."
+
+        total_score = 0
+        repo_count = 0
+        detailed_results = []
+
+        for repo in repos:
+            if isinstance(repo, dict):
+                repo_data = {
+                    'name': repo.get('name', 'N/A'),
+                    'html_url': repo.get('html_url', 'N/A')
+                }
+                evaluation_result = evaluate_repository_with_gemini(repo_data, username)
+                detailed_results.append({
+                    'repository': repo_data['name'],
+                    'evaluation': evaluation_result
+                })
+                # Extract the score from the result (assuming the bot's result ends with a score out of 100)
+                try:
+                    score = int(evaluation_result.split()[-2])  # Adjust this parsing as needed
+                    total_score += score
+                    repo_count += 1
+                except ValueError:
+                    pass
+
+        if repo_count == 0:
+            return "No valid scores could be calculated for the user's repositories."
+
+        average_score = total_score / repo_count
+        summary = f"Overall Average Score for {username}: {average_score}/100\n\n"
+        for result in detailed_results:
+            summary += f"Repository: {result['repository']}\nEvaluation: {result['evaluation']}\n\n"
+
+        return summary
+
+    except Exception as e:
+        return f"Error fetching or evaluating repositories: {e}"
+
+# Example usage in the Streamlit app
+if all_repos:
+    st.subheader(f"Overall Evaluation for User: {userName}")
+    overall_evaluation = evaluate_all_repositories(userName)
+    st.write(overall_evaluation)
