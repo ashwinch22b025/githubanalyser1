@@ -226,7 +226,7 @@ def evaluate_repository_with_gemini(repo_data, username):
     except Exception as e:
         return f"Error during evaluation: {e}"
 
-# Evaluate all repositories for a given username and calculate an average score
+
 def evaluate_all_repositories(username):
     """
     Fetch all repositories for a GitHub user and calculate an average score using the Gemini API.
@@ -279,8 +279,7 @@ def evaluate_all_repositories(username):
     except Exception as e:
         return f"Error fetching or evaluating repositories: {e}"
 
-# Example usage in the Streamlit app
-if all_repos:
+if userName and all_repos:
     st.subheader(f"Overall Evaluation for User: {userName}")
     overall_evaluation = evaluate_all_repositories(userName)
     st.write(overall_evaluation)
