@@ -180,13 +180,13 @@ def evaluate_repository_with_gemini(repo_data, username):
     Evaluate a GitHub repository using the Gemini API based on a 20-point rubric.
 
     Args:
-        repo_data (dict): Data about the repository, including its name.
+        repo_data (dict): Data about the repository, including its name and details.
         username (str): GitHub username.
 
     Returns:
         str: Evaluation summary scored out of 100 marks.
     """
-    # Define the rubric (example points, can be expanded)
+    # Define the rubric (example points)
     rubric = [
         "Number of pull requests accepted",
         "Frequency of commits",
@@ -225,7 +225,6 @@ def evaluate_repository_with_gemini(repo_data, username):
         return result
     except Exception as e:
         return f"Error during evaluation: {e}"
-
 
 def evaluate_all_repositories(username):
     """
@@ -285,8 +284,16 @@ def evaluate_all_repositories(username):
     except Exception as e:
         return f"Error fetching or evaluating repositories: {e}"
 
+if __name__ == "__main__":
+    import streamlit as st
 
-if userName and all_repos:
-    st.subheader(f"Overall Evaluation for User: {userName}")
-    overall_evaluation = evaluate_all_repositories(userName)
-    st.write(overall_evaluation)
+    st.title("GitHub Repository Evaluator")
+    userName = st.text_input("Enter GitHub username:")
+
+    if st.button("Evaluate Repositories"):
+        if userName:
+            st.subheader(f"Overall Evaluation for User: {userName}")
+            overall_evaluation = evaluate_all_repositories(userName)
+            st.write(overall_evaluation)
+        else:
+            st.error("Please enter a GitHub username.")
