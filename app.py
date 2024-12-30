@@ -163,7 +163,6 @@ if userName:
             "Number of contributors",
             "Diversity of programming languages used",
             "Languages",
-            "Number of stars",
             "Number of forks",
             "License"
         ]
@@ -176,7 +175,6 @@ if userName:
         - README content: {repo_data['readme_content'][:200]}...
         - Number of contributors: {repo_data['num_contributors']}
         - Languages: {', '.join(repo_data['languages'].keys())}
-        - Number of stars: {repo_data['stargazers_count']}
         - Number of forks: {repo_data['forks']}
         - License: {repo_data['license']}
 
