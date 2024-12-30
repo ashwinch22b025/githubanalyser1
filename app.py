@@ -92,6 +92,11 @@ if userName:
                     for repo in repos:
                         if isinstance(repo, dict):
                             repo_data = {k: repo.get(k, 'N/A') for k in DataNeeded}
+                            repo_data['num_pulls'] = self.get_pull_count(repo_data['name'])
+                            repo_data['num_commits'] = self.get_commit_count(repo_data['name'])
+                            repo_data['num_contributors'] = self.get_contributor_count(repo_data['name'])
+                            repo_data['languages'] = self.get_languages(repo_data['name'])
+                            repo_data['license'] = self.get_license(repo_data['name'])
                             repo_stats.append(repo_data)
                     return repo_stats
                 else:
@@ -99,6 +104,42 @@ if userName:
             except Exception as e:
                 st.error(f"Error fetching repositories: {e}")
                 return []
+        
+        def get_pull_count(self, repo_name):
+            try:
+                url = f'https://api.github.com/repos/{self.username}/{repo_name}/pulls'
+                return len(requests.get(url).json())
+            except Exception:
+                return 0
+        
+        def get_commit_count(self, repo_name):
+            try:
+                url = f'https://api.github.com/repos/{self.username}/{repo_name}/commits'
+                return len(requests.get(url).json())
+            except Exception:
+                return 0
+
+        def get_contributor_count(self, repo_name):
+            try:
+                url = f'https://api.github.com/repos/{self.username}/{repo_name}/contributors'
+                return len(requests.get(url).json())
+            except Exception:
+                return 0
+        
+        def get_languages(self, repo_name):
+            try:
+                url = f'https://api.github.com/repos/{self.username}/{repo_name}/languages'
+                return requests.get(url).json()
+            except Exception:
+                return {}
+
+        def get_license(self, repo_name):
+            try:
+                url = f'https://api.github.com/repos/{self.username}/{repo_name}/license'
+                license_info = requests.get(url).json()
+                return license_info.get('license', {}).get('name', 'N/A')
+            except Exception:
+                return 'N/A'
 
     repo = Repo(userName)
     all_repos = repo.get_all_repos()
@@ -108,68 +149,101 @@ if userName:
             st.write(f"Repository {idx}")
             st.json(repo_data)
 
-    def fetch_repo_data(repo_name, username):
-        """
-        Fetch all required repository data for Gemini evaluation.
-        """
+            # Fetch the README file and analyze it using the Gemini API
+            readme_url = f'https://api.github.com/repos/{userName}/{repo_data["name"]}/readme'
+            try:
+                readme_response = requests.get(readme_url).json()
+                if 'content' in readme_response:
+                    readme_content = readme_response['content']
+                    try:
+                        readme_decoded = requests.utils.unquote(readme_content)
+                        bot = Agent("Analyze the README content of a GitHub repository.")
+                        analysis_result = bot(readme_decoded)
+                        st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                        st.write(analysis_result)
+                    except Exception:
+                        st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                        st.write("NULL")
+                else:
+                    st.subheader(f"README Analysis for Repository: {repo_data['name']}")
+                    st.write("NULL")
+            except Exception as e:
+                st.error(f"Error fetching README for {repo_data['name']}: {e}")
+    else:
+        st.write("No repositories found or there was an error fetching repositories.")
+
+    st.subheader("Commit Info")
+
+    # Commit Info from Commit class
+    class Commit:
+        def __init__(self, username, project_id, sha):
+            self.username = username
+            self.project_id = project_id
+            self.sha = sha
+            self.commit_url = f'https://api.github.com/repos/{self.username}/{self.project_id}/commits/{self.sha}'
+        
+        def get_commit_stats(self):
+            try:
+                commit_data = requests.get(self.commit_url).json()
+                return {
+                    'committer': commit_data.get('commit', {}).get('committer', {}),
+                    'commit': commit_data.get('commit', {}),
+                    'message': commit_data.get('commit', {}).get('message', 'N/A')
+                }
+            except Exception as e:
+                st.error(f"Error fetching commit stats: {e}")
+                return {}
+
+    if all_repos:
+        first_repo_name = all_repos[0]['name']
+        st.write(f"Fetching commits for repository: {first_repo_name}")
+        repo_url = f'https://api.github.com/repos/{userName}/{first_repo_name}/commits'
         try:
-            # Fetch pull request data
-            pulls_url = f'https://api.github.com/repos/{username}/{repo_name}/pulls?state=all'
-            pulls = requests.get(pulls_url).json()
-            num_pulls = len(pulls) if isinstance(pulls, list) else 0
-
-            # Fetch commit data
-            commits_url = f'https://api.github.com/repos/{username}/{repo_name}/commits'
-            commits = requests.get(commits_url).json()
-            num_commits = len(commits) if isinstance(commits, list) else 0
-
-            # Fetch README content
-            readme_url = f'https://api.github.com/repos/{username}/{repo_name}/readme'
-            readme_response = requests.get(readme_url).json()
-            readme_content = requests.utils.unquote(readme_response.get('content', '')) if 'content' in readme_response else 'N/A'
-
-            # Fetch languages
-            languages_url = f'https://api.github.com/repos/{username}/{repo_name}/languages'
-            languages = requests.get(languages_url).json()
-
-            # Fetch contributors
-            contributors_url = f'https://api.github.com/repos/{username}/{repo_name}/contributors'
-            contributors = requests.get(contributors_url).json()
-            num_contributors = len(contributors) if isinstance(contributors, list) else 0
-
-            return {
-                'num_pulls': num_pulls,
-                'num_commits': num_commits,
-                'readme_content': readme_content,
-                'languages': languages,
-                'num_contributors': num_contributors
-            }
+            commits = requests.get(repo_url).json()
+            if isinstance(commits, list):
+                for commit in commits[:5]:
+                    if isinstance(commit, dict):
+                        st.json({
+                            'SHA': commit.get('sha', 'N/A'),
+                            'Message': commit.get('commit', {}).get('message', 'N/A'),
+                            'Author': commit.get('commit', {}).get('author', {}),
+                        })
+            else:
+                st.write("No commits found or an error occurred.")
         except Exception as e:
-            st.error(f"Error fetching data for repository {repo_name}: {e}")
-            return {}
+            st.error(f"Error fetching commits: {e}")
+else:
+    st.write("Please enter a GitHub username.")
 
-    def evaluate_repository_with_gemini(repo_name, username):
-        """
-        Evaluate a GitHub repository using the Gemini API based on available metrics.
-        """
-        repo_data = fetch_repo_data(repo_name, username)
-        if not repo_data:
-            return "Unable to fetch repository data for evaluation."
 
-        rubric = [
-            "Number of pull requests accepted",
-            "Frequency of commits",
-            "Quality of README file",
-            "Number of contributors",
-            "Diversity of programming languages used",
-            "Languages",
-            "Number of forks",
-            "License"
-        ]
+def evaluate_repository_with_gemini(repo_data, username):
+    """
+    Evaluate a GitHub repository using the Gemini API based on a 20-point rubric.
 
-        bot = Agent("Evaluate a GitHub repository based on the provided metrics.")
-        prompt = f"""
-        Evaluate the repository '{repo_name}' for user '{username}' using the following data:
+    Args:
+        repo_data (dict): Data about the repository, including its name.
+        username (str): GitHub username.
+
+    Returns:
+        str: Evaluation summary scored out of 100 marks.
+    """
+    # Define the rubric (example points, can be expanded)
+    rubric = [
+        "Number of pull requests: {repo_data['num_pulls']}",
+        "Number of commits: {repo_data['num_commits']}",
+        "README content: {repo_data['readme_content'][:200]}...",
+        "Number of contributors: {repo_data['num_contributors']}",
+        "Languages: {', '.join(repo_data['languages'].keys())}",
+        "Number of forks: {repo_data['forks']}",
+        "License: {repo_data['license']}"
+    ]
+
+    # Initialize the Agent
+    bot = Agent("Evaluate a GitHub repository based on a 20-point rubric, scoring each point out of 5 marks.")
+
+    # Create a prompt including the rubric and repository details
+    prompt = f"""
+    Evaluate the repository '{repo_data['name']}' for user '{username}' using the following data:
         - Number of pull requests: {repo_data['num_pulls']}
         - Number of commits: {repo_data['num_commits']}
         - README content: {repo_data['readme_content'][:200]}...
@@ -177,62 +251,83 @@ if userName:
         - Languages: {', '.join(repo_data['languages'].keys())}
         - Number of forks: {repo_data['forks']}
         - License: {repo_data['license']}
+    """ + "\n\nProvide a detailed evaluation and the final score."
 
-        Use the following rubric:
-        """ + "\n".join([f"{i + 1}. {point}" for i, point in enumerate(rubric)]) + "\n\nProvide a detailed evaluation and a score out of 100."
+    # Execute the evaluation
+    try:
+        result = bot(prompt)
+        return result
+    except Exception as e:
+        return f"Error during evaluation: {e}"
 
-        try:
-            result = bot(prompt)
-            return result
-        except Exception as e:
-            return f"Error during evaluation: {e}"
 
-    def evaluate_all_repositories(username):
-        """
-        Fetch all repositories for a GitHub user and calculate an average score using the Gemini API.
-        """
-        try:
-            if not all_repos:
-                return "No repositories found for the user."
+def evaluate_all_repositories(username):
+    """
+    Fetch all repositories for a GitHub user and calculate an average score using the Gemini API.
 
-            total_score = 0
-            repo_count = 0
-            detailed_results = []
+    Args:
+        username (str): GitHub username.
 
-            for repo in all_repos:
-                repo_name = repo.get('name', 'N/A')
-                if repo_name != 'N/A':
-                    evaluation_result = evaluate_repository_with_gemini(repo_name, username)
-                    detailed_results.append({
-                        'repository': repo_name,
-                        'evaluation': evaluation_result
-                    })
+    Returns:
+        str: Overall evaluation summary and average score.
+    """
+    repo_url = f'https://api.github.com/users/{username}/repos'
+    try:
+        repos = requests.get(repo_url).json()
+        if not isinstance(repos, list):
+            return "Error fetching repositories or user has no repositories."
 
-                    # Extract score (update parsing logic based on AI response)
-                    try:
-                        score_line = evaluation_result.splitlines()[-1]  # Assuming score is on the last line
-                        score = int([s for s in score_line.split() if s.isdigit()][0])
-                        total_score += score
-                        repo_count += 1
-                    except Exception as e:
-                        print(f"Error parsing score for {repo_name}: {e}")
+        total_score = 0
+        repo_count = 0
+        detailed_results = []
 
-            if repo_count == 0:
-                return "No valid scores could be calculated for the user's repositories."
+        for repo in repos:
+            if isinstance(repo, dict):
+                repo_data = {
+                    'name': repo.get('name', 'N/A'),
+                    'html_url': repo.get('html_url', 'N/A'),
+                    'num_pulls': repo.get('pulls', 0),
+                    'num_commits': repo.get('commits', 0),
+                    'readme_content': repo.get('readme_content', 'N/A'),
+                    'num_contributors': repo.get('contributors', 0),
+                    'languages': repo.get('languages', {}),
+                    'forks': repo.get('forks', 0),
+                    'license': repo.get('license', 'N/A'),
+                }
+                evaluation_result = evaluate_repository_with_gemini(repo_data, username)
+                detailed_results.append({
+                    'repository': repo_data['name'],
+                    'evaluation': evaluation_result
+                })
 
-            average_score = total_score / repo_count
-            summary = f"Overall Average Score for {username}: {average_score}/100\n\n"
-            for result in detailed_results:
-                summary += f"Repository: {result['repository']}\nEvaluation: {result['evaluation']}\n\n"
+                # Debugging: Log the evaluation result
+                print(f"Evaluation Result for {repo_data['name']}: {evaluation_result}")
 
-            return summary
+                # Extract the score from the result (update parsing logic)
+                try:
+                    # Adjust the extraction logic based on actual format
+                    score_line = evaluation_result.splitlines()[-1]  # Assuming score is on the last line
+                    score = int([s for s in score_line.split() if s.isdigit()][0])  # Extract first number
+                    total_score += score
+                    repo_count += 1
+                except Exception as e:
+                    print(f"Error parsing score for {repo_data['name']}: {e}")
 
-        except Exception as e:
-            return f"Error fetching or evaluating repositories: {e}"
+        if repo_count == 0:
+            return "No valid scores could be calculated for the user's repositories."
 
-    if st.button("Evaluate Repositories"):
-        st.subheader(f"Overall Evaluation for User: {userName}")
-        overall_evaluation = evaluate_all_repositories(userName)
-        st.write(overall_evaluation)
-else:
-    st.write("Please enter a GitHub username.")
+        average_score = total_score / repo_count
+        summary = f"Overall Average Score for {username}: {average_score}/100\n\n"
+        for result in detailed_results:
+            summary += f"Repository: {result['repository']}\nEvaluation: {result['evaluation']}\n\n"
+
+        return summary
+
+    except Exception as e:
+        return f"Error fetching or evaluating repositories: {e}"
+
+
+if userName and all_repos:
+    st.subheader(f"Overall Evaluation for User: {userName}")
+    overall_evaluation = evaluate_all_repositories(userName)
+    st.write(overall_evaluation)
