@@ -142,7 +142,10 @@ if userName:
                 'num_commits': num_commits,
                 'readme_content': readme_content,
                 'languages': languages,
-                'num_contributors': num_contributors
+                'num_contributors': num_contributors,
+                'stargazers_count': requests.get(f'https://api.github.com/repos/{username}/{repo_name}').json().get('stargazers_count', 0),
+                'forks': requests.get(f'https://api.github.com/repos/{username}/{repo_name}').json().get('forks', 0),
+                'license': requests.get(f'https://api.github.com/repos/{username}/{repo_name}').json().get('license', {}).get('name', 'N/A')
             }
         except Exception as e:
             st.error(f"Error fetching data for repository {repo_name}: {e}")
@@ -157,11 +160,14 @@ if userName:
             return "Unable to fetch repository data for evaluation."
 
         rubric = [
-            "Number of pull requests accepted",
-            "Frequency of commits",
-            "Quality of README file",
-            "Number of contributors",
-            "Diversity of programming languages used",
+            "Number of pull requests accepted (30%)",
+            "Frequency of commits (20%)",
+            "Quality of README file (15%)",
+            "Number of contributors (10%)",
+            "Diversity of programming languages used (10%)",
+            "Number of stars (10%)",
+            "Number of forks (5%)",
+            "License (10%)"
         ]
 
         bot = Agent("Evaluate a GitHub repository based on the provided metrics.")
@@ -172,6 +178,9 @@ if userName:
         - README content: {repo_data['readme_content'][:200]}...
         - Number of contributors: {repo_data['num_contributors']}
         - Languages: {', '.join(repo_data['languages'].keys())}
+        - Number of stars: {repo_data['stargazers_count']}
+        - Number of forks: {repo_data['forks']}
+        - License: {repo_data['license']}
 
         Use the following rubric:
         """ + "\n".join([f"{i + 1}. {point}" for i, point in enumerate(rubric)]) + "\n\nProvide a detailed evaluation and a score out of 100."
@@ -216,7 +225,7 @@ if userName:
                 return "No valid scores could be calculated for the user's repositories."
 
             average_score = total_score / repo_count
-            summary = f"Overall Average Score for {username}: {average_score}/100\n\n"
+            summary = f"Overall Average Score for {username}: {average_score:.2f}/100\n\n"
             for result in detailed_results:
                 summary += f"Repository: {result['repository']}\nEvaluation: {result['evaluation']}\n\n"
 
