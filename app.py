@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.schema import HumanMessage, AIMessage, SystemMessage
-from base64 import b64decode
+import re
 
 # Load environment variables
 load_dotenv()
@@ -161,6 +161,22 @@ def fetch_repo_data(repo_name, username):
         return {}
 
 
+def extract_score_from_result(result):
+    """
+    Extract score from the result.
+    """
+    try:
+        match = re.search(r'Score:\s*(\d+)/100', result)
+        if match:
+            score = int(match.group(1))
+            return score
+        else:
+            raise ValueError("Score not found in result.")
+    except Exception as e:
+        st.error(f"Error extracting score: {e}")
+        return None
+
+
 def evaluate_repository_with_gemini(repo_name, username):
     """
     Evaluate a GitHub repository using the Gemini API based on available metrics.
@@ -196,13 +212,14 @@ def evaluate_repository_with_gemini(repo_name, username):
 
     try:
         result = bot(prompt)
-        # Extract score from the result
-        lines = result.splitlines()
-        score_line = lines[-1]  # Assuming score is at the end
-        score = int(''.join(filter(str.isdigit, score_line)))  # Extract digits from the line
-        return f"Score: {score}/100"
+        score = extract_score_from_result(result)
+        if score is not None:
+            return f"Score: {score}/100"
+        else:
+            return "Score extraction failed."
     except Exception as e:
         return f"Error during evaluation: {e}"
+
 
 def evaluate_all_repositories(username):
     """
@@ -226,13 +243,12 @@ def evaluate_all_repositories(username):
                 })
 
                 # Extract score (update parsing logic based on AI response)
-                try:
-                    score_line = evaluation_result.splitlines()[-1]  # Assuming score is on the last line
-                    score = int([s for s in score_line.split() if s.isdigit()][0])
+                score = extract_score_from_result(evaluation_result)
+                if score is not None:
                     total_score += score
                     repo_count += 1
-                except Exception as e:
-                    st.error(f"Error parsing score for {repo_name}: {e}")
+                else:
+                    st.error(f"Error parsing score for {repo_name}: {evaluation_result}")
 
         if repo_count == 0:
             return "No valid scores could be calculated for the user's repositories."
@@ -246,6 +262,7 @@ def evaluate_all_repositories(username):
 
     except Exception as e:
         return f"Error fetching or evaluating repositories: {e}"
+
 
 if st.button("Evaluate Repositories"):
     st.subheader(f"Overall Evaluation for User: {userName}")
