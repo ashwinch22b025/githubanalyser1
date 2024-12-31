@@ -144,8 +144,7 @@ def fetch_repo_data(repo_name, username):
         contributors = contributors.json()
         num_contributors = len(contributors) if isinstance(contributors, list) else 0
 
-        # Extract stargazers_count and forks directly from the repo data
-        stargazers_count = commits[0].get('stargazers_count', 0) if commits else 0
+        # Extract forks directly from the repo data
         forks_count = commits[0].get('forks', 0) if commits else 0
 
         return {
@@ -154,7 +153,6 @@ def fetch_repo_data(repo_name, username):
             'readme_content': readme_content,
             'languages': languages,
             'num_contributors': num_contributors,
-            'stargazers_count': stargazers_count,
             'forks': forks_count,
             'license': commits[0].get('license', {}).get('name', 'N/A')  # Assumes license exists in commits
         }
@@ -178,7 +176,6 @@ def evaluate_repository_with_gemini(repo_name, username):
         "Number of contributors",
         "Diversity of programming languages used",
         "Languages",
-        "Number of stars",
         "Number of forks",
         "License"
     ]
@@ -191,7 +188,6 @@ def evaluate_repository_with_gemini(repo_name, username):
     - README content: {repo_data['readme_content'][:200]}...
     - Number of contributors: {repo_data['num_contributors']}
     - Languages: {', '.join(repo_data['languages'].keys())}
-    - Number of stars: {repo_data['stargazers_count']}
     - Number of forks: {repo_data['forks']}
     - License: {repo_data['license']}
 
