@@ -113,38 +113,55 @@ def fetch_repo_data(repo_name, username):
     try:
         # Fetch pull request data
         pulls_url = f'https://api.github.com/repos/{username}/{repo_name}/pulls?state=all'
-        pulls = requests.get(pulls_url).json()
+        pulls = requests.get(pulls_url)
+        pulls.raise_for_status()
+        pulls = pulls.json()
         num_pulls = len(pulls) if isinstance(pulls, list) else 0
 
         # Fetch commit data
         commits_url = f'https://api.github.com/repos/{username}/{repo_name}/commits'
-        commits = requests.get(commits_url).json()
+        commits = requests.get(commits_url)
+        commits.raise_for_status()
+        commits = commits.json()
         num_commits = len(commits) if isinstance(commits, list) else 0
 
         # Fetch README content
         readme_url = f'https://api.github.com/repos/{username}/{repo_name}/readme'
-        readme_response = requests.get(readme_url).json()
-        readme_content = b64decode(readme_response.get('content', '').encode('utf-8')).decode('utf-8', 'ignore') if 'content' in readme_response else 'N/A'
+        readme_response = requests.get(readme_url)
+        readme_response.raise_for_status()
+        readme_content = requests.utils.unquote(readme_response.json().get('content', '')) if 'content' in readme_response.json() else 'N/A'
 
         # Fetch languages
         languages_url = f'https://api.github.com/repos/{username}/{repo_name}/languages'
-        languages = requests.get(languages_url).json()
+        languages = requests.get(languages_url)
+        languages.raise_for_status()
+        languages = languages.json()
 
         # Fetch contributors
         contributors_url = f'https://api.github.com/repos/{username}/{repo_name}/contributors'
-        contributors = requests.get(contributors_url).json()
+        contributors = requests.get(contributors_url)
+        contributors.raise_for_status()
+        contributors = contributors.json()
         num_contributors = len(contributors) if isinstance(contributors, list) else 0
+
+        # Extract stargazers_count and forks directly from the repo data
+        stargazers_count = commits[0].get('stargazers_count', 0) if commits else 0
+        forks_count = commits[0].get('forks', 0) if commits else 0
 
         return {
             'num_pulls': num_pulls,
             'num_commits': num_commits,
             'readme_content': readme_content,
             'languages': languages,
-            'num_contributors': num_contributors
+            'num_contributors': num_contributors,
+            'stargazers_count': stargazers_count,
+            'forks': forks_count,
+            'license': commits[0].get('license', {}).get('name', 'N/A')  # Assumes license exists in commits
         }
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         st.error(f"Error fetching data for repository {repo_name}: {e}")
         return {}
+
 
 def evaluate_repository_with_gemini(repo_name, username):
     """
